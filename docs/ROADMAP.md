@@ -11,10 +11,10 @@
 | **M1** | Project Foundation & Data Pipeline | ✅ Completed | 19 / 19 passed | Async DB, 14-Feature Pipeline, Synthetic Generator, Data Ingestion Service |
 | **M2** | AI Threat Detection & Explainability | ✅ Completed | 31 / 31 passed | RF, XGBoost, PyTorch MLP, Ensemble Classifier (99.87% F1), SHAP Explainer |
 | **M3** | Zero Trust Engine & Risk Scoring | ✅ Completed | 40 / 40 passed | NIST SP 800-207 5-Factor Risk Scorer, Continuous Trust Evaluator, Policy API |
-| **M4** | Cyber Deception & Digital Twin | ⏳ In Progress | Scheduled | Honeypot Containers (SSH, Web, DB, Creds), Deception Controller, Canary Tokens |
-| **M5** | RL Adaptive Deception & LLM Integration | 📅 Scheduled | Scheduled | Stable-Baselines3 DQN Agent, Ollama LLM Interaction Sandbox |
-| **M6** | Federated Learning | 📅 Scheduled | Scheduled | Flower FL Simulation, 3 Enterprise Domain Clients, FedAvg Aggregation |
-| **M7** | SOC Dashboard, Integration & Evaluation | 📅 Scheduled | Scheduled | React SOC Dashboard, End-to-End Pipeline, 7 Research Experiments |
+| **M4** | Cyber Deception & Digital Twin | ✅ Completed (simulator) | Validated | Five honeypot simulators, deception controller, canary tokens |
+| **M5** | RL Adaptive Deception & LLM Integration | ✅ Completed (native PyTorch) | Validated | PyTorch DQN, Ollama adapter, adaptive policy |
+| **M6** | Federated Learning | ✅ Completed (local FedAvg) | Validated | Three enterprise domains, client/server contracts, FedAvg |
+| **M7** | SOC Dashboard, Integration & Evaluation | ✅ Completed (local deployment) | Validated | React dashboard, WebSocket stream, integration test, experiments |
 
 ---
 
@@ -68,31 +68,32 @@
 - [x] Dynamic runtime policy and threshold updates (`PUT /zerotrust/policy`)
 
 #### Milestone 4: Cyber Deception & Digital Twin (In Progress)
-- [ ] Isolated Digital Twin honeypot services (Fake SSH, Fake Web, Fake DB, Fake Credential Store)
-- [ ] Deception Controller strategy orchestrator (`DECEIVE` action routing)
-- [ ] Interaction monitoring and canary token tripwires
-- [ ] Attack simulation scripts for realistic honeypot interaction testing
-- [ ] REST API endpoints (`/deception/decide`, `/actions`, `/strategies`, `/twin/status`)
+- [x] Isolated simulator honeypot services (Fake SSH, Fake Web, Fake DB, Fake Credential Store, Digital Twin)
+- [x] Deception Controller strategy orchestrator (`DECEIVE`/`BLOCK` action routing; simulator-backed)
+- [x] Interaction monitoring and canary token tripwires (simulator-backed)
+- [x] Attack simulation scripts for realistic honeypot interaction testing (API simulator)
+- [x] REST API endpoints (`/deception/decide`, `/deception/actions`, `/deception/strategies`, `/deception/twin/status`, `/deception/interact`)
 
 #### Milestone 5: RL Adaptive Deception & LLM Integration
-- [ ] Custom Gymnasium Environment (`DeceptionEnv`) with 12-dim continuous state space and 6 discrete deception actions
-- [ ] Deep Q-Network (DQN) agent training with Stable-Baselines3
-- [ ] RL policy evaluation against baseline policies (random, static, round-robin)
-- [ ] Ollama local LLM integration with strict safety guardrails and persona templates
-- [ ] Adaptive deception controller driven by DQN policy
-- [ ] REST API endpoints (`/rl/train`, `/rl/policy`, `/deception/interact`)
+- [x] Custom simulator environment (`DeceptionEnv`) with 12-dim continuous state space and 6 discrete deception actions
+- [x] Deep Q-Network (DQN) agent training with PyTorch (Stable-Baselines3 remains optional)
+- [x] Lightweight adaptive Q-policy training and policy inspection API
+- [x] RL policy evaluation against baseline policies (random, static, round-robin)
+- [x] Ollama local LLM integration with bounded requests, deception guardrails, and simulator fallback
+- [x] Adaptive deception controller driven by DQN policy
+- [x] REST API endpoints (`/rl/train`, `/rl/policy`, `/deception/interact`)
 
 #### Milestone 6: Federated Learning
-- [ ] Data partitioning across 3 simulated enterprise domains (HR, Finance, Engineering)
-- [ ] Flower (`flwr`) ClientApp using PyTorch MLP model
-- [ ] Flower ServerApp with FedAvg aggregation strategy
-- [ ] 20-round federated simulation and convergence evaluation
-- [ ] Communication efficiency and privacy verification (no raw data transmission)
-- [ ] REST API endpoints (`/federated/start`, `/federated/rounds`)
+- [x] Data partitioning across 3 simulated enterprise domains (HR, Finance, Engineering)
+- [x] Flower `NumPyClient` adapter and FedAvg strategy using PyTorch MLP model
+- [x] Local PyTorch MLP parameter averaging with FedAvg aggregation
+- [x] 20-round federated simulation and convergence history
+- [x] Communication boundary stores metrics and parameters only, not raw event data
+- [x] REST API endpoints (`/federated/start`, `/federated/rounds`)
 
 #### Milestone 7: SOC Dashboard, Integration & Evaluation
-- [ ] React 18 + Vite SOC Dashboard with 10 real-time monitoring panels
-- [ ] WebSocket connection for real-time alert streaming
-- [ ] End-to-end integration test (Ingest → Detect → ZT Evaluate → RL Strategy → Honeypot → LLM → Dashboard)
-- [ ] Execution of 7 formal research experiments with plots and data exports
-- [ ] Single-command deployment (`docker-compose up`)
+- [x] React + Vite SOC Dashboard with live telemetry and posture panels
+- [x] WebSocket connection for real-time alert streaming
+- [x] End-to-end integration test (Ingest → Detect → ZT Evaluate → Deception → Honeypot)
+- [x] Execution of 7 reproducible research experiments with JSON data exports
+- [x] Single-command backend deployment (`docker-compose up`)

@@ -23,6 +23,7 @@ from backend.schemas.deception import (
     DeceptionActionResponse,
     AttackerInteractRequest,
     AttackerInteractResponse,
+    DeceptionDecisionRequest,
 )
 from backend.schemas.dashboard import (
     DashboardSummary,
@@ -48,6 +49,7 @@ __all__ = [
     "DeceptionActionResponse",
     "AttackerInteractRequest",
     "AttackerInteractResponse",
+    "DeceptionDecisionRequest",
     "DashboardSummary",
     "SystemHealthResponse",
 ]

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.config import settings
 from backend.database import init_db
 from backend.api.router import api_router
+from backend.api.stream import router as stream_router
 from backend.utils.logging import setup_logging, logger
 
 
@@ -46,6 +47,7 @@ app.add_middleware(
 
 # Include API endpoints
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(stream_router)
 
 
 @app.get("/", tags=["Root"])

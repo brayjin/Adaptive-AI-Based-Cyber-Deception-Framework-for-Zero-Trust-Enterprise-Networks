@@ -1,0 +1,55 @@
+services:
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      DATABASE_URL: sqlite+aiosqlite:///./cyber_deception.db
+    volumes:
+      - cyber-deception-data:/app
+
+  fake-ssh:
+    build: ./honeypots
+    environment:
+      HONEYPOT_SERVICE: fake_ssh
+    networks: [deception]
+
+  fake-web:
+    build: ./honeypots
+    environment:
+      HONEYPOT_SERVICE: fake_web
+    networks: [deception]
+
+  fake-db:
+    build: ./honeypots
+    environment:
+      HONEYPOT_SERVICE: fake_db
+    networks: [deception]
+
+  fake-credentials:
+    build: ./honeypots
+    environment:
+      HONEYPOT_SERVICE: fake_credentials
+    networks: [deception]
+
+  digital-twin:
+    build: ./honeypots
+    environment:
+      HONEYPOT_SERVICE: digital_twin
+    networks: [deception]
+
+volumes:
+  cyber-deception-data:
+
+networks:
+  deception:
+    internal: true

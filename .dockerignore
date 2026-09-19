@@ -1,0 +1,7 @@
+.git
+.venv
+__pycache__
+*.pyc
+*.db
+tests
+cyber_deception_framework.egg-info

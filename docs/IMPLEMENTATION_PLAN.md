@@ -29,10 +29,10 @@
 | **M1** | Project Foundation & Data Pipeline | Working API server, database, data ingestion, feature engineering | Medium | ✅ Completed |
 | **M2** | AI Threat Detection & Explainability | Trained ML models, SHAP explanations, evaluation metrics | High | ✅ Completed |
 | **M3** | Zero Trust Engine & Risk Scoring | Continuous trust evaluation, risk scoring, policy decisions | Medium | ✅ Completed |
-| **M4** | Cyber Deception & Digital Twin | Docker-based honeypots, deception controller, Digital Twin | High | ⏳ Next |
-| **M5** | RL Adaptive Deception & LLM Integration | DQN agent, LLM deceptive interaction, adaptive policy | High | 📅 Scheduled |
-| **M6** | Federated Learning | Multi-domain FL simulation, FedAvg aggregation | Medium | 📅 Scheduled |
-| **M7** | SOC Dashboard, Integration & Evaluation | React dashboard, end-to-end integration, experiments | High | 📅 Scheduled |
+| **M4** | Cyber Deception & Digital Twin | Simulator honeypots, deception controller, Digital Twin | High | ✅ Completed |
+| **M5** | RL Adaptive Deception & LLM Integration | PyTorch DQN agent, Ollama adapter, adaptive policy | High | ✅ Completed |
+| **M6** | Federated Learning | Multi-domain simulation, client/server contracts, FedAvg | Medium | ✅ Completed |
+| **M7** | SOC Dashboard, Integration & Evaluation | React dashboard, WebSocket stream, integration, experiments | High | ✅ Completed |
 
 ---
 

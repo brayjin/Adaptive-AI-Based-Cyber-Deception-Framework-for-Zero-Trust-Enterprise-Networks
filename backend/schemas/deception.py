@@ -24,9 +24,15 @@ class DeceptionActionResponse(DeceptionActionBase):
 
 
 class AttackerInteractRequest(BaseModel):
+    action_id: str
     session_id: str
     service_type: str = Field(..., json_schema_extra={"example": "ssh"})  # ssh, web, db, credentials
     input_text: str = Field(..., json_schema_extra={"example": "cat /etc/passwd"})
+
+
+class DeceptionDecisionRequest(BaseModel):
+    evaluation_id: str
+    strategy: str | None = None
 
 
 class AttackerInteractResponse(BaseModel):

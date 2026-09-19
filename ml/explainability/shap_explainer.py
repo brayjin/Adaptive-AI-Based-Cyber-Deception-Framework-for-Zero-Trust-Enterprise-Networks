@@ -1,5 +1,9 @@
 import numpy as np
-import shap
+import warnings
+
+with warnings.catch_warnings():
+    warnings.filterwarnings("ignore", category=PendingDeprecationWarning, module="shap")
+    import shap
 from backend.config import settings
 from backend.utils.logging import logger
 
