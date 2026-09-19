@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+ENV/
+env/
+
+# Environment / local files
+.env
+.env.*
+
+# Python packaging
+*.egg-info/
