@@ -1,5 +1,6 @@
 import json
 import os
+import ssl
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
@@ -24,4 +25,8 @@ class HoneypotHandler(BaseHTTPRequestHandler):
         return
 
 
-HTTPServer(("0.0.0.0", 8080), HoneypotHandler).serve_forever()
+server = HTTPServer(("0.0.0.0", 8080), HoneypotHandler)
+context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+context.load_cert_chain("/tmp/honeypot.crt", "/tmp/honeypot.key")
+server.socket = context.wrap_socket(server.socket, server_side=True)
+server.serve_forever()

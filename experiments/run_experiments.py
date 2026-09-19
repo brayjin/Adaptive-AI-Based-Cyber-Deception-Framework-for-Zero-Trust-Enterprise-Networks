@@ -8,10 +8,28 @@ import matplotlib.pyplot as plt
 from backend.services.federated_learning import federated_simulation
 from backend.services.rl_deception import adaptive_policy
 
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def _resolve_output_path(raw_output: Path) -> Path:
+    candidate = Path(raw_output).expanduser()
+    if not candidate.is_absolute():
+        candidate = (PROJECT_ROOT / candidate).resolve()
+    else:
+        candidate = candidate.resolve()
+
+    try:
+        candidate.relative_to(PROJECT_ROOT)
+    except ValueError as exc:
+        raise ValueError(f"Output path must remain under project root: {PROJECT_ROOT}") from exc
+
+    candidate.parent.mkdir(parents=True, exist_ok=True)
+    return candidate
+
 
 def run(output: Path, rounds: int = 5, episodes: int = 100) -> dict:
-    output.parent.mkdir(parents=True, exist_ok=True)
-    plot_dir = output.parent / "plots"
+    resolved_output = _resolve_output_path(output)
+    plot_dir = resolved_output.parent / "plots"
     plot_dir.mkdir(parents=True, exist_ok=True)
     baselines = adaptive_policy.evaluate_baselines(episodes)
     federated = federated_simulation.run(rounds, 10)
@@ -62,7 +80,7 @@ def run(output: Path, rounds: int = 5, episodes: int = 100) -> dict:
         "experiment_7_reproducibility": {"seed": 42, "rounds": rounds, "episodes": episodes},
         "plots": [str(baseline_plot), str(convergence_plot)],
     }
-    output.write_text(json.dumps(results, indent=2))
+    resolved_output.write_text(json.dumps(results, indent=2), encoding="utf-8")
     return results
 
 
