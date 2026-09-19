@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
 import { Activity, Bot, Database, Gauge, Radio, ShieldAlert, Server, Settings2, Wifi, Workflow } from "lucide-react";
 import "./styles.css";
 
@@ -85,3 +86,5 @@ function App() {
 }
 
 export default App;
+
+createRoot(document.getElementById("root")).render(<App />);
