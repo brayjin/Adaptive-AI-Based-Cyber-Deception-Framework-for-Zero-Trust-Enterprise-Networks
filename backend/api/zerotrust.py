@@ -47,6 +47,16 @@ async def evaluate_trust(
                 select(ThreatPrediction).where(ThreatPrediction.id == request.prediction_id)
             )
             prediction = pred_result.scalar_one_or_none()
+            if prediction is None:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail=f"ThreatPrediction with id '{request.prediction_id}' not found",
+                )
+            if prediction.event_id != request.event_id:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Prediction does not belong to the specified event",
+                )
 
         evaluation = await zero_trust_engine.evaluate_event(
             db=db,

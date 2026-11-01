@@ -69,6 +69,12 @@ class ZeroTrustEngine:
             # Automatic continuous evaluation: obtain prediction first
             prediction = await threat_detector_service.detect_and_record(db, event)
 
+        # Enforce event-prediction association integrity.
+        if prediction.event_id != event.id:
+            raise ValueError(
+                "Prediction does not belong to the specified event"
+            )
+
         # Prevent duplicate evaluations for the same event and prediction.
         existing_result = await db.execute(
             select(ZeroTrustEvaluation).where(
