@@ -6,6 +6,7 @@ import numpy as np
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.config import settings
 from backend.models.deception import DeceptionAction
 from backend.models.evaluations import ZeroTrustEvaluation
 from backend.services.honeypots import honeypot_registry
@@ -233,7 +234,15 @@ class DeceptionService:
         start_time = time.perf_counter()
         started_at = datetime.utcnow()
 
-        honeypot_response = honeypot_registry.handle(service_type, input_text)
+        if settings.HONEYPOT_BACKEND == "docker":
+            try:
+                from backend.services.honeypot_docker import DockerHoneypotClient
+
+                honeypot_response = await DockerHoneypotClient().handle(service_type, input_text)
+            except Exception:
+                honeypot_response = honeypot_registry.handle(service_type, input_text)
+        else:
+            honeypot_response = honeypot_registry.handle(service_type, input_text)
         canary_triggered = honeypot_response.canary_triggered
 
         response_text = await deception_llm.generate(service_type, input_text)

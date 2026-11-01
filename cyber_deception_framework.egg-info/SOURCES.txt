@@ -3,6 +3,7 @@ pyproject.toml
 backend/config.py
 backend/database.py
 backend/main.py
+backend/api/audit.py
 backend/api/deception.py
 backend/api/detection.py
 backend/api/events.py
@@ -31,6 +32,7 @@ backend/services/data_ingestion.py
 backend/services/deception.py
 backend/services/feature_engineering.py
 backend/services/federated_learning.py
+backend/services/honeypot_docker.py
 backend/services/honeypots.py
 backend/services/llm_deception.py
 backend/services/risk_scorer.py
@@ -49,6 +51,7 @@ federated/__init__.py
 federated/client.py
 federated/flower_client.py
 federated/server.py
+honeypots/service.py
 ml/__init__.py
 ml/train.py
 ml/explainability/__init__.py
@@ -58,6 +61,9 @@ ml/models/ensemble.py
 ml/models/mlp.py
 ml/models/random_forest.py
 ml/models/xgboost_model.py
+rl/__init__.py
+rl/environment.py
+rl/train.py
 scripts/download_dataset.py
 scripts/seed_data.py
 scripts/simulate_deception.py

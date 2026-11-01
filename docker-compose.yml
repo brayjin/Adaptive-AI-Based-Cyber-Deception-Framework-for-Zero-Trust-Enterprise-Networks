@@ -3,8 +3,8 @@ services:
     build: ./frontend
     ports:
       - "3000:80"
-    depends_on:
-      - api
+    networks: [app]
+    profiles: ["default"]
 
   api:
     build: .
@@ -13,43 +13,98 @@ services:
     environment:
       ENVIRONMENT: production
       DEBUG: "false"
-      DATABASE_URL: sqlite+aiosqlite:///./cyber_deception.db
+      DATABASE_URL: sqlite+aiosqlite://///data/cyber_deception.db
+      HONEYPOT_BACKEND: simulator
     volumes:
-      - cyber-deception-data:/app
+      - cyber-deception-data:/data
+    depends_on:
+      api-health:
+        condition: service_healthy
+    networks: [app, deception]
+    profiles: ["default"]
+
+  api-health:
+    build: .
+    command: ["sh", "-c", "uvicorn backend.main:app --host 127.0.0.1 --port 8000"]
+    environment:
+      ENVIRONMENT: production
+      DEBUG: "false"
+      DATABASE_URL: sqlite+aiosqlite://///data/cyber_deception.db
+      HONEYPOT_BACKEND: simulator
+    volumes:
+      - cyber-deception-data:/data
+    networks: [app]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/v1/system/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
 
   fake-ssh:
     build: ./honeypots
     environment:
       HONEYPOT_SERVICE: fake_ssh
     networks: [deception]
+    profiles: ["deception", "default"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import ssl; import socket; s=socket.create_connection(('localhost',8080),timeout=2); c=ssl.wrap_socket(s, server_hostname='localhost', ssl_version=ssl.PROTOCOL_TLS_CLIENT); c.request('GET','/'); r=c.getresponse(); _=r.status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   fake-web:
     build: ./honeypots
     environment:
       HONEYPOT_SERVICE: fake_web
     networks: [deception]
+    profiles: ["deception", "default"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import ssl; import socket; s=socket.create_connection(('localhost',8080),timeout=2); c=ssl.wrap_socket(s, server_hostname='localhost', ssl_version=ssl.PROTOCOL_TLS_CLIENT); c.request('GET','/'); r=c.getresponse(); _=r.status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   fake-db:
     build: ./honeypots
     environment:
       HONEYPOT_SERVICE: fake_db
     networks: [deception]
+    profiles: ["deception", "default"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import ssl; import socket; s=socket.create_connection(('localhost',8080),timeout=2); c=ssl.wrap_socket(s, server_hostname='localhost', ssl_version=ssl.PROTOCOL_TLS_CLIENT); c.request('GET','/'); r=c.getresponse(); _=r.status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   fake-credentials:
     build: ./honeypots
     environment:
       HONEYPOT_SERVICE: fake_credentials
     networks: [deception]
+    profiles: ["deception", "default"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import ssl; import socket; s=socket.create_connection(('localhost',8080),timeout=2); c=ssl.wrap_socket(s, server_hostname='localhost', ssl_version=ssl.PROTOCOL_TLS_CLIENT); c.request('GET','/'); r=c.getresponse(); _=r.status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   digital-twin:
     build: ./honeypots
     environment:
       HONEYPOT_SERVICE: digital_twin
     networks: [deception]
+    profiles: ["deception", "default"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import ssl; import socket; s=socket.create_connection(('localhost',8080),timeout=2); c=ssl.wrap_socket(s, server_hostname='localhost', ssl_version=ssl.PROTOCOL_TLS_CLIENT); c.request('GET','/'); r=c.getresponse(); _=r.status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
 volumes:
   cyber-deception-data:
 
 networks:
+  app:
   deception:
     internal: true

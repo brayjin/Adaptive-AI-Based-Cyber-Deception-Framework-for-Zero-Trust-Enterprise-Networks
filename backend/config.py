@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     ZT_THRESHOLD_DECEIVE: float = 0.80
     
     # LLM & Deception
+    HONEYPOT_BACKEND: str = "simulator"
+    HONEYPOT_DOCKER_TIMEOUT: float = 2.0
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3.2:3b"
 
