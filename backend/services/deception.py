@@ -1,4 +1,5 @@
 import time
+import uuid
 from datetime import datetime
 
 import numpy as np
@@ -41,7 +42,7 @@ class DeceptionService:
     @staticmethod
     def choose_strategy(evaluation: ZeroTrustEvaluation) -> tuple[str, str, list, str, float]:
         if evaluation.trust_decision not in {"DECEIVE", "BLOCK"}:
-            return "NORMAL_RESPONSE", "Risk decision does not require deception", [], "", 0.0
+            return "NORMAL_RESPONSE", "Risk decision does not require deception", None, None, None
 
         stable_model = get_trained_dqn()
         if stable_model is not None:
@@ -65,12 +66,12 @@ class DeceptionService:
             action_index = int(action)
             if DECEPTION_ACTIONS[action_index] == "NORMAL_RESPONSE":
                 if evaluation.device_score >= 0.70:
-                    return "FAKE_SSH", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
+                    return "FAKE_SSH", "Rule-based fallback after RL NORMAL_RESPONSE", None, None, None
                 if evaluation.network_score >= 0.70:
-                    return "DIGITAL_TWIN", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
+                    return "DIGITAL_TWIN", "Rule-based fallback after RL NORMAL_RESPONSE", None, None, None
                 if evaluation.behaviour_score >= 0.70:
-                    return "FAKE_CREDENTIALS", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
-                return "FAKE_WEB", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
+                    return "FAKE_CREDENTIALS", "Rule-based fallback after RL NORMAL_RESPONSE", None, None, None
+                return "FAKE_WEB", "Rule-based fallback after RL NORMAL_RESPONSE", None, None, None
             reward = compute_reward(state, action_index)
             return (
                 DECEPTION_ACTIONS[action_index],
@@ -116,12 +117,12 @@ class DeceptionService:
             )
 
         if evaluation.device_score >= 0.70:
-            return "FAKE_SSH", "Elevated risk against a privileged service", [], "", 0.0
+            return "FAKE_SSH", "Elevated risk against a privileged service", None, None, None
         if evaluation.network_score >= 0.70:
-            return "DIGITAL_TWIN", "Elevated network scanning or flood indicators", [], "", 0.0
+            return "DIGITAL_TWIN", "Elevated network scanning or flood indicators", None, None, None
         if evaluation.behaviour_score >= 0.70:
-            return "FAKE_CREDENTIALS", "High-confidence malicious behaviour", [], "", 0.0
-        return "FAKE_WEB", "Deception selected for elevated composite risk", [], "", 0.0
+            return "FAKE_CREDENTIALS", "High-confidence malicious behaviour", None, None, None
+        return "FAKE_WEB", "Deception selected for elevated composite risk", None, None, None
 
     async def decide(
         self,
@@ -165,9 +166,9 @@ class DeceptionService:
             selected = requested
             reason = "Strategy selected by caller"
             # Caller override means no RL policy action was used.
-            rl_state = []
-            rl_action = ""
-            rl_reward = 0.0
+            rl_state = None
+            rl_action = None
+            rl_reward = None
 
         action = DeceptionAction(
             evaluation_id=evaluation.id,
@@ -176,7 +177,7 @@ class DeceptionService:
             deception_target=f"honeypot_{selected.lower()}",
             rl_reward=rl_reward,
             rl_state=rl_state,
-            rl_action=rl_action if rl_action != "" else "0",
+            rl_action=rl_action,
         )
         db.add(action)
         await db.flush()
@@ -243,6 +244,7 @@ class DeceptionService:
         latency_ms = (end_time - start_time) * 1000.0
 
         entry = {
+            "interaction_id": str(uuid.uuid4()),
             "session_id": session_id,
             "service_type": service_type,
             "input": input_text,
@@ -251,15 +253,13 @@ class DeceptionService:
             "canary_test_signal": canary_triggered,
             "started_at": started_at.isoformat(),
             "ended_at": ended_at.isoformat(),
+            "duration_ms": round(latency_ms, 3),
             "latency_ms": round(latency_ms, 3),
         }
         interaction_log = list(action.interaction_log or [])
         interaction_log.append(entry)
         action.interaction_log = interaction_log
-        action.attacker_engagement_time = max(
-            action.attacker_engagement_time,
-            len(interaction_log),
-        )
+        action.attacker_engagement_time = (action.attacker_engagement_time or 0.0) + latency_ms
         action.ended_at = ended_at
         await db.flush()
         return {

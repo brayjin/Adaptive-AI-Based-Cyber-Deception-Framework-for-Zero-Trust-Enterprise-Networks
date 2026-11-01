@@ -25,10 +25,10 @@ class DeceptionAction(Base):
     attacker_engagement_time: Mapped[float] = mapped_column(Float, default=0.0)
     deception_success: Mapped[bool] = mapped_column(Boolean, default=False)
     
-    # RL agent details
-    rl_reward: Mapped[float] = mapped_column(Float, default=0.0)
-    rl_state: Mapped[list[float]] = mapped_column(JSON, default=list)
-    rl_action: Mapped[int] = mapped_column(String(20), default="0")
+    # RL agent details (nullable when no RL policy is used)
+    rl_reward: Mapped[float | None] = mapped_column(Float, nullable=True, default=None)
+    rl_state: Mapped[list[float] | None] = mapped_column(JSON, nullable=True, default=None)
+    rl_action: Mapped[str | None] = mapped_column(String(20), nullable=True, default=None)
     
     started_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

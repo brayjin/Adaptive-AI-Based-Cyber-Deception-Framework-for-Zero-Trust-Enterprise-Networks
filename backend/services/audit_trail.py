@@ -1,3 +1,4 @@
+import uuid
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,7 +12,14 @@ async def reconstruct_audit_chain(db: AsyncSession, event_id: str) -> dict:
     """Reconstruct the full Event -> Prediction -> Evaluation -> Deception -> Interaction chain."""
     event = await db.get(NetworkEvent, event_id)
     if event is None:
-        return {"event": None, "predictions": [], "evaluations": []}
+        return {
+            "event_id": event_id,
+            "status": "not_found",
+            "missing_stages": ["event"],
+            "event": None,
+            "predictions": [],
+            "evaluations": [],
+        }
 
     pred_result = await db.execute(
         select(ThreatPrediction)
@@ -49,7 +57,30 @@ async def reconstruct_audit_chain(db: AsyncSession, event_id: str) -> dict:
             }
         )
 
+    missing = []
+    if not predictions:
+        missing.append("prediction")
+    if not evaluations:
+        missing.append("evaluation")
+    if evaluations and not any(
+        ev["deception_actions"] for ev in reconstructed_evaluations
+    ):
+        # only flag deception as missing for DECEIVE/BLOCK evaluations
+        if any(ev["evaluation"].trust_decision in {"DECEIVE", "BLOCK"} for ev in reconstructed_evaluations):
+            missing.append("deception_action")
+    if any(
+        ev["deception_actions"] and not any(
+            a["interactions"] for a in ev["deception_actions"]
+        )
+        for ev in reconstructed_evaluations
+    ):
+        missing.append("interaction")
+
+    status = "complete" if not missing else "incomplete"
     return {
+        "event_id": event_id,
+        "status": status,
+        "missing_stages": missing,
         "event": event,
         "predictions": predictions,
         "evaluations": reconstructed_evaluations,

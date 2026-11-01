@@ -8,7 +8,7 @@ class DeceptionActionBase(BaseModel):
     deception_target: str = Field("honeypot_ssh", json_schema_extra={"example": "honeypot_ssh"})
     attacker_engagement_time: float = Field(0.0, ge=0.0)
     deception_success: bool = Field(False)
-    rl_reward: float = Field(0.0)
+    rl_reward: float | None = Field(default=None)
 
 
 class DeceptionActionResponse(DeceptionActionBase):
@@ -17,8 +17,8 @@ class DeceptionActionResponse(DeceptionActionBase):
     id: str
     evaluation_id: str
     interaction_log: list[dict]
-    rl_state: list[float]
-    rl_action: str
+    rl_state: list[float] | None = None
+    rl_action: str | None = None
     started_at: datetime
     ended_at: datetime | None = None
 

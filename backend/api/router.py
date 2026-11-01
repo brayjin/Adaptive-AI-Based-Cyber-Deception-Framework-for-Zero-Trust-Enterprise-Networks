@@ -6,6 +6,7 @@ from backend.api.zerotrust import router as zerotrust_router
 from backend.api.deception import router as deception_router
 from backend.api.rl import router as rl_router
 from backend.api.federated import router as federated_router
+from backend.api.audit import router as audit_router
 
 api_router = APIRouter()
 api_router.include_router(health_router)
@@ -15,3 +16,4 @@ api_router.include_router(zerotrust_router)
 api_router.include_router(deception_router)
 api_router.include_router(rl_router)
 api_router.include_router(federated_router)
+api_router.include_router(audit_router)
