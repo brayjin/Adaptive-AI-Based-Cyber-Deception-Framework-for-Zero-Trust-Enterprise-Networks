@@ -56,6 +56,5 @@ def test_invalid_values_handled():
         "session_duration": "abc",
         "port_diversity": "x",
     }
-    vec = feature_pipeline.to_feature_vector(raw)
-    assert len(vec) == 14
-    assert np.all(np.isfinite(vec))
+    with pytest.raises(ValueError):
+        feature_pipeline.to_feature_vector(raw)

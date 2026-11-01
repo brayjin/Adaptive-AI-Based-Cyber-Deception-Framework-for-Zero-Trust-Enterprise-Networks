@@ -1,6 +1,7 @@
+import math
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone
 from backend.config import settings
 from backend.utils.logging import logger
 
@@ -37,28 +38,42 @@ class FeatureEngineeringPipeline:
         bytes_received = self._safe_float(event_dict.get("bytes_received", 0), 0.0)
         connection_rate = self._safe_float(event_dict.get("connection_rate", 1.0), 1.0)
         failed_login_count = self._safe_float(event_dict.get("failed_login_count", 0), 0.0)
-        session_duration = max(0.001, self._safe_float(event_dict.get("session_duration", 0.1), 0.1))
+        session_duration = self._safe_float(event_dict.get("session_duration", 0.1), 0.1)
 
         # Derived features
         bytes_ratio = bytes_sent / (bytes_received + 1.0)
         port_diversity = self._safe_float(event_dict.get("port_diversity", 1), 1.0)
         
         # Time of day (fraction 0.0 - 1.0)
-        event_time = event_dict.get("event_time")
-        if isinstance(event_time, str):
-            try:
-                dt = datetime.fromisoformat(event_time.replace("Z", "+00:00"))
-                time_of_day = (dt.hour * 3600 + dt.minute * 60 + dt.second) / 86400.0
-            except Exception:
-                time_of_day = 0.5
-        elif isinstance(event_time, datetime):
-            time_of_day = (event_time.hour * 3600 + event_time.minute * 60 + event_time.second) / 86400.0
+        precomputed_tod = event_dict.get("time_of_day", None)
+        if precomputed_tod is not None:
+            time_of_day = self._safe_float(precomputed_tod, 0.5)
+            if time_of_day < 0 or time_of_day >= 1:
+                raise ValueError("time_of_day must be in [0, 1)")
         else:
-            time_of_day = 0.5
+            event_time = event_dict.get("event_time")
+            if isinstance(event_time, str):
+                try:
+                    dt = datetime.fromisoformat(event_time.replace("Z", "+00:00"))
+                    if dt.tzinfo is not None:
+                        dt = dt.astimezone(timezone.utc)
+                    time_of_day = (dt.hour * 3600 + dt.minute * 60 + dt.second) / 86400.0
+                except (ValueError, TypeError) as exc:
+                    raise ValueError(f"Invalid event_time: {event_time!r}") from exc
+            elif isinstance(event_time, datetime):
+                dt = event_time
+                if dt.tzinfo is not None:
+                    dt = dt.astimezone(timezone.utc)
+                time_of_day = (dt.hour * 3600 + dt.minute * 60 + dt.second) / 86400.0
+            else:
+                time_of_day = 0.5
 
         is_privileged_port = 1.0 if dest_port < 1024 else 0.0
         connection_frequency = self._safe_float(event_dict.get("connection_frequency", connection_rate * 60.0), connection_rate * 60.0)
-        packets_per_second = packet_count / session_duration
+        if session_duration and session_duration != 0:
+            packets_per_second = packet_count / session_duration
+        else:
+            packets_per_second = 0.0
 
         features = {
             "dest_port": float(dest_port),
@@ -80,24 +95,27 @@ class FeatureEngineeringPipeline:
 
     @staticmethod
     def _safe_int(value, default: int = 0) -> int:
+        if value is None:
+            return default
         try:
-            if value is None:
-                return default
-            return int(value)
-        except (TypeError, ValueError):
-            try:
-                return int(float(value))
-            except (TypeError, ValueError):
-                return default
+            number = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid integer value: {value!r}") from exc
+        if not math.isfinite(number):
+            raise ValueError(f"Non-finite integer value: {value!r}")
+        return int(number)
 
     @staticmethod
     def _safe_float(value, default: float = 0.0) -> float:
-        try:
-            if value is None:
-                return default
-            return float(value)
-        except (TypeError, ValueError):
+        if value is None:
             return default
+        try:
+            number = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"Invalid numeric value: {value!r}") from exc
+        if not math.isfinite(number):
+            raise ValueError(f"Non-finite numeric value: {value!r}")
+        return number
 
     def merge_computed_features(self, event_dict: dict) -> dict:
         merged = dict(event_dict or {})

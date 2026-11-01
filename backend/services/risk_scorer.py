@@ -105,7 +105,13 @@ class RiskScorer:
         Calculates Identity Risk [0.0 - 1.0] based on failed logins, authentication
         state, and credential anomalies.
         """
-        failed_logins = float(event_data.get("failed_login_count", 0) or 0)
+        raw_failed = event_data.get("failed_login_count", 0)
+        if raw_failed is None:
+            failed_logins = 0.0
+        else:
+            failed_logins = float(raw_failed)
+            if not math.isfinite(failed_logins):
+                raise ValueError("failed_login_count must be finite")
         if failed_logins <= 0:
             return 0.05  # Baseline minimal ambient risk
         # Exponential escalation: 1 -> ~0.15, 5 -> ~0.55, 10+ -> ~0.85+
@@ -165,7 +171,13 @@ class RiskScorer:
             computed = raw.get("computed_features", {}) if isinstance(raw, dict) else {}
             time_of_day = computed.get("time_of_day", raw.get("time_of_day", 0.5))
         time_of_day = float(time_of_day if time_of_day is not None else 0.5)
-        duration = float(event_data.get("session_duration", 1.0) or 1.0)
+        raw_duration = event_data.get("session_duration", None)
+        if raw_duration is None:
+            duration = 1.0
+        else:
+            duration = float(raw_duration)
+            if not math.isfinite(duration):
+                raise ValueError("session_duration must be finite")
         rate = float(event_data.get("connection_rate", 1.0) or 1.0)
 
         score = 0.10
