@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config import settings
@@ -67,6 +69,49 @@ class ZeroTrustEngine:
             # Automatic continuous evaluation: obtain prediction first
             prediction = await threat_detector_service.detect_and_record(db, event)
 
+        # Prevent duplicate evaluations for the same event and prediction.
+        existing_result = await db.execute(
+            select(ZeroTrustEvaluation).where(
+                ZeroTrustEvaluation.event_id == event.id,
+                ZeroTrustEvaluation.prediction_id == prediction.id,
+            )
+        )
+        existing_evaluation = existing_result.scalars().first()
+        if existing_evaluation is not None:
+            return existing_evaluation
+
+        raw_features = event.raw_features or {}
+        computed = {}
+        if isinstance(raw_features, dict):
+            c = raw_features.get("computed_features")
+            if isinstance(c, dict):
+                computed = c
+
+        # Derive time_of_day from the stored event time when it is not already present
+        time_of_day = computed.get("time_of_day")
+        if time_of_day is None:
+            event_time = event.event_time
+            if isinstance(event_time, datetime):
+                time_of_day = (
+                    event_time.hour * 3600 + event_time.minute * 60 + event_time.second
+                ) / 86400.0
+            elif isinstance(event_time, str):
+                try:
+                    dt = datetime.fromisoformat(event_time.replace("Z", "+00:00"))
+                    time_of_day = (
+                        dt.hour * 3600 + dt.minute * 60 + dt.second
+                    ) / 86400.0
+                except ValueError:
+                    time_of_day = raw_features.get("time_of_day", 0.5)
+            else:
+                time_of_day = raw_features.get("time_of_day", 0.5)
+        if time_of_day is None:
+            time_of_day = 0.5
+
+        port_diversity = computed.get("port_diversity")
+        if port_diversity is None:
+            port_diversity = raw_features.get("port_diversity", 1)
+
         event_data = {
             "source_ip": event.source_ip,
             "dest_ip": event.dest_ip,
@@ -79,7 +124,9 @@ class ZeroTrustEngine:
             "connection_rate": event.connection_rate,
             "failed_login_count": event.failed_login_count,
             "session_duration": event.session_duration,
-            "raw_features": event.raw_features or {},
+            "time_of_day": time_of_day,
+            "port_diversity": port_diversity,
+            "raw_features": raw_features,
         }
 
         pred_data = {

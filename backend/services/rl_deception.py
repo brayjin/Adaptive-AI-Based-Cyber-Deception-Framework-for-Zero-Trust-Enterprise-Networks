@@ -37,9 +37,27 @@ class DeceptionEnv:
             raise ValueError(f"Action must be between 0 and {self.action_count - 1}")
         risk = float(np.clip(np.mean(self.state[:3]), 0.0, 1.0))
         engagement = float(np.clip(self.state[3], 0.0, 1.0))
+        device = float(np.clip(self.state[4], 0.0, 1.0))
+        behaviour = float(np.clip(self.state[1], 0.0, 1.0))
+        network = float(np.clip(self.state[2], 0.0, 1.0))
+        composite = float(np.clip(self.state[6], 0.0, 1.0))
         targeted = int(action in {0, 1, 2, 3, 4})
-        reward = (risk * 0.8) + (engagement * 0.4 if targeted else -0.2)
-        self.state[3] = np.clip(engagement + (0.1 if targeted else -0.05), 0.0, 1.0)
+        if action == 0:
+            alignment = device
+        elif action == 1:
+            alignment = 0.5
+        elif action == 2:
+            alignment = float(np.clip(self.state[5], 0.0, 1.0))
+        elif action == 3:
+            alignment = behaviour
+        elif action == 4:
+            alignment = network
+        else:
+            alignment = 1.0 - composite
+        reward = (risk * 0.5) + (alignment * 0.35) + (engagement * 0.2 if targeted else -0.15)
+        if action == 5 and composite >= 0.6:
+            reward -= 0.25
+        self.state[3] = np.clip(engagement + (0.12 if targeted else -0.05), 0.0, 1.0)
         self.state[4] = float(targeted)
         return self.state.copy(), float(reward), True, {"action": DECEPTION_ACTIONS[action]}
 
@@ -77,6 +95,7 @@ class AdaptiveDeceptionPolicy:
     def train(self, episodes: int = 100) -> dict:
         environment = DeceptionEnv()
         rewards = []
+        action_counts = [0] * len(DECEPTION_ACTIONS)
         for _ in range(episodes):
             state = environment.reset(np.random.default_rng(self.trained_episodes).random(12))
             action = self.select_action(state, explore=True)
@@ -90,13 +109,58 @@ class AdaptiveDeceptionPolicy:
             loss.backward()
             self.optimizer.step()
             rewards.append(reward)
+            action_counts[action] += 1
             self.trained_episodes += 1
         q_values = self.model(torch.zeros((1, 12))).detach().numpy()[0]
         return {
             "episodes": self.trained_episodes,
             "mean_reward": float(np.mean(rewards)) if rewards else 0.0,
             "q_values": q_values.tolist(),
+            "action_counts": action_counts,
+            "episode_rewards": [float(r) for r in rewards],
         }
+
+    def save(self, path) -> None:
+        from pathlib import Path
+
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        torch.save(
+            {
+                "model_state_dict": self.model.state_dict(),
+                "trained_episodes": self.trained_episodes,
+            },
+            path,
+        )
+
+    def load(self, path) -> None:
+        from pathlib import Path
+
+        checkpoint = torch.load(Path(path), map_location="cpu")
+        self.model.load_state_dict(checkpoint["model_state_dict"])
+        self.trained_episodes = int(checkpoint.get("trained_episodes", self.trained_episodes))
+
+    def evaluate_policies(self, episodes: int = 100, seed: int = 42) -> dict:
+        rng = np.random.default_rng(seed)
+        states = [rng.random(12).astype(np.float32) for _ in range(episodes)]
+        results = {}
+        policies = {
+            "random": lambda state, index: int(np.random.default_rng(index).integers(len(DECEPTION_ACTIONS))),
+            "rule_based": lambda state, index: rule_based_action(state),
+            "static": lambda state, index: 0,
+            "round_robin": lambda state, index: index % len(DECEPTION_ACTIONS),
+            "dqn": lambda state, index: self.select_action(state),
+        }
+        for name, selector in policies.items():
+            rewards = []
+            for index, state in enumerate(states):
+                action = selector(state, index)
+                rewards.append(compute_reward(state.tolist(), action))
+            results[name] = {
+                "episodes": episodes,
+                "mean_reward": float(np.mean(rewards)) if rewards else 0.0,
+            }
+        return results
 
     def describe(self) -> dict:
         q_values = self.model(torch.zeros((1, 12))).detach().numpy()[0]
@@ -129,6 +193,50 @@ class AdaptiveDeceptionPolicy:
                 "mean_reward": float(np.mean(rewards)),
             }
         return results
+
+
+def compute_reward(state: list, action: int) -> float:
+    state = [float(x) for x in state]
+    risk = float(np.clip(np.mean(state[:3]), 0.0, 1.0))
+    engagement = float(np.clip(state[3], 0.0, 1.0))
+    device = float(np.clip(state[4], 0.0, 1.0))
+    behaviour = float(np.clip(state[1], 0.0, 1.0))
+    network = float(np.clip(state[2], 0.0, 1.0))
+    composite = float(np.clip(state[6], 0.0, 1.0))
+    targeted = action in {0, 1, 2, 3, 4}
+    if action == 0:
+        alignment = device
+    elif action == 1:
+        alignment = 0.5
+    elif action == 2:
+        alignment = float(np.clip(state[5], 0.0, 1.0))
+    elif action == 3:
+        alignment = behaviour
+    elif action == 4:
+        alignment = network
+    else:
+        alignment = 1.0 - composite
+    reward = (risk * 0.5) + (alignment * 0.35) + (engagement * 0.2 if targeted else -0.15)
+    if action == 5 and composite >= 0.6:
+        reward -= 0.25
+    return float(reward)
+
+
+def rule_based_action(state: list) -> int:
+    state = [float(x) for x in state]
+    device = state[4]
+    network = state[2]
+    behaviour = state[1]
+    composite = state[6]
+    if device >= 0.70:
+        return 0
+    if network >= 0.70:
+        return 4
+    if behaviour >= 0.70:
+        return 3
+    if composite >= 0.6:
+        return 1
+    return 5
 
 
 adaptive_policy = AdaptiveDeceptionPolicy()

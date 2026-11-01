@@ -77,19 +77,39 @@ class ThreatExplainer:
         try:
             shap_values = self.explainer.shap_values(X)
 
-            # TreeExplainer output handling: could be a list (multi-class) or 2D array
+            # TreeExplainer output handling: could be a list (multi-class), an
+            # Explanation object, or a 2D/3D array.
             if isinstance(shap_values, list):
                 # For binary classification, use index 1 (malicious class)
-                vals = shap_values[1][0] if len(shap_values) > 1 else shap_values[0][0]
+                if len(shap_values) > 1:
+                    candidate = shap_values[1]
+                else:
+                    candidate = shap_values[0]
+                vals = candidate[0] if hasattr(candidate, "__len__") and len(candidate.shape) > 1 else candidate
             elif hasattr(shap_values, "values"):
                 # Explanation object
-                vals = shap_values.values[0]
-                if vals.ndim > 1:
-                    vals = vals[:, 1]
-            elif shap_values.ndim == 2:
-                vals = shap_values[0]
+                vals = shap_values.values[0] if shap_values.values.ndim > 1 else shap_values.values
+                if hasattr(vals, "ndim") and vals.ndim > 1:
+                    vals = vals[:, 1] if vals.shape[-1] > 1 else vals[:, 0]
+            elif isinstance(shap_values, np.ndarray):
+                if shap_values.ndim == 3:
+                    # (samples, features, classes)
+                    vals = shap_values[0, :, 1] if shap_values.shape[-1] > 1 else shap_values[0, :, 0]
+                elif shap_values.ndim == 2:
+                    vals = shap_values[0]
+                else:
+                    vals = shap_values
             else:
                 vals = shap_values
+
+            if hasattr(vals, "tolist"):
+                vals = np.asarray(vals).reshape(-1)
+            if len(vals) != len(self.feature_names):
+                # Pad/truncate defensively without inventing values
+                padded = np.zeros(len(self.feature_names), dtype=float)
+                n = min(len(vals), len(self.feature_names))
+                padded[:n] = vals[:n]
+                vals = padded
 
             return self._format_contributions(vals, feature_vector, prediction, confidence)
 

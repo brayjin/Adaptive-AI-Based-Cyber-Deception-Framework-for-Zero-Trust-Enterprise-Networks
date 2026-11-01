@@ -13,18 +13,22 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 def _resolve_output_path(raw_output: Path) -> Path:
     candidate = Path(raw_output).expanduser()
-    if not candidate.is_absolute():
-        candidate = (PROJECT_ROOT / candidate).resolve()
+    if candidate.is_absolute():
+        resolved = candidate.resolve(strict=False)
     else:
-        candidate = candidate.resolve()
+        resolved = (PROJECT_ROOT / candidate).resolve(strict=False)
 
+    project_root = PROJECT_ROOT.resolve(strict=False)
     try:
-        candidate.relative_to(PROJECT_ROOT)
+        resolved.relative_to(project_root)
     except ValueError as exc:
-        raise ValueError(f"Output path must remain under project root: {PROJECT_ROOT}") from exc
+        raise ValueError(f"Output path must remain under project root: {project_root}") from exc
 
-    candidate.parent.mkdir(parents=True, exist_ok=True)
-    return candidate
+    if resolved.exists() and resolved.is_dir():
+        raise ValueError(f"Output path points to a directory: {resolved}")
+
+    resolved.parent.mkdir(parents=True, exist_ok=True)
+    return resolved
 
 
 def run(output: Path, rounds: int = 5, episodes: int = 100) -> dict:

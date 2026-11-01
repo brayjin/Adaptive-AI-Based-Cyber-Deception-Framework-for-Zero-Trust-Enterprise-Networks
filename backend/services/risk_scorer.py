@@ -50,7 +50,7 @@ class RiskScorer:
         Calculates Identity Risk [0.0 - 1.0] based on failed logins, authentication
         state, and credential anomalies.
         """
-        failed_logins = float(event_data.get("failed_login_count", 0))
+        failed_logins = float(event_data.get("failed_login_count", 0) or 0)
         if failed_logins <= 0:
             return 0.05  # Baseline minimal ambient risk
         # Exponential escalation: 1 -> ~0.15, 5 -> ~0.55, 10+ -> ~0.85+
@@ -90,7 +90,7 @@ class RiskScorer:
             return 0.20  # Neutral prior if no prediction available
 
         prediction = prediction_data.get("prediction", "BENIGN").upper()
-        confidence = float(prediction_data.get("confidence", 0.5))
+        confidence = float(prediction_data.get("confidence", 0.5) or 0.5)
 
         if prediction == "MALICIOUS":
             # If AI is confident it is malicious, behaviour risk approaches 1.0
@@ -104,9 +104,14 @@ class RiskScorer:
         """
         Calculates Context Risk [0.0 - 1.0] based on access timing, duration, and frequency.
         """
-        time_of_day = float(event_data.get("time_of_day", 0.5))
-        duration = float(event_data.get("session_duration", 1.0))
-        rate = float(event_data.get("connection_rate", 1.0))
+        time_of_day = event_data.get("time_of_day")
+        if time_of_day is None:
+            raw = event_data.get("raw_features", {}) or {}
+            computed = raw.get("computed_features", {}) if isinstance(raw, dict) else {}
+            time_of_day = computed.get("time_of_day", raw.get("time_of_day", 0.5))
+        time_of_day = float(time_of_day if time_of_day is not None else 0.5)
+        duration = float(event_data.get("session_duration", 1.0) or 1.0)
+        rate = float(event_data.get("connection_rate", 1.0) or 1.0)
 
         score = 0.10
 
@@ -132,7 +137,12 @@ class RiskScorer:
         Calculates Network Risk [0.0 - 1.0] based on port scan dispersion, byte ratio,
         and IP subnet characteristics.
         """
-        port_div = float(event_data.get("port_diversity", 1))
+        port_div = event_data.get("port_diversity")
+        if port_div is None:
+            raw = event_data.get("raw_features", {}) or {}
+            computed = raw.get("computed_features", {}) if isinstance(raw, dict) else {}
+            port_div = computed.get("port_diversity", raw.get("port_diversity", 1))
+        port_div = float(port_div if port_div is not None else 1)
         bytes_sent = float(event_data.get("bytes_sent", 0))
         bytes_recv = float(event_data.get("bytes_received", 0))
         packet_count = float(event_data.get("packet_count", 1))
@@ -201,6 +211,13 @@ class RiskScorer:
             "context_score": round(s_ctx, 4),
             "network_score": round(s_net, 4),
             "composite_risk_score": round(composite, 4),
+            "weights": {
+                "identity": round(policy.weight_identity, 4),
+                "device": round(policy.weight_device, 4),
+                "behaviour": round(policy.weight_behaviour, 4),
+                "context": round(policy.weight_context, 4),
+                "network": round(policy.weight_network, 4),
+            },
         }
 
         return round(composite, 4), scores, decision

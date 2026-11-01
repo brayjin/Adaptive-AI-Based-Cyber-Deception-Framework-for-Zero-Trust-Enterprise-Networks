@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config import settings
 from backend.models.events import NetworkEvent
@@ -43,6 +44,7 @@ class ThreatDetectionService:
         """
         Run feature extraction, ensemble threat detection, and SHAP explainability.
         """
+        event_dict = feature_pipeline.merge_computed_features(event_dict)
         feat_vec = feature_pipeline.to_feature_vector(event_dict)
 
         if self.is_ready and self.ensemble.is_fitted:
@@ -79,6 +81,14 @@ class ThreatDetectionService:
         """
         Run threat detection on a NetworkEvent ORM instance and record the result in DB.
         """
+        # Prevent duplicate predictions for the same event.
+        existing_result = await db.execute(
+            select(ThreatPrediction).where(ThreatPrediction.event_id == event.id)
+        )
+        existing_prediction = existing_result.scalars().first()
+        if existing_prediction is not None:
+            return existing_prediction
+
         event_dict = {
             "source_ip": event.source_ip,
             "dest_ip": event.dest_ip,
@@ -92,7 +102,10 @@ class ThreatDetectionService:
             "failed_login_count": event.failed_login_count,
             "session_duration": event.session_duration,
             "event_time": event.event_time,
+            "raw_features": event.raw_features or {},
         }
+
+        event_dict = feature_pipeline.merge_computed_features(event_dict)
 
         detection = self.predict_event(event_dict)
 

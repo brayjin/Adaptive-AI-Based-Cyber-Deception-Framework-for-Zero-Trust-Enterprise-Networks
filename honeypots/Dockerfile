@@ -1,9 +1,9 @@
 FROM python:3.11-slim
 
 WORKDIR /service
-RUN groupadd --system app && useradd --system --gid app --create-home --home-dir /home/app app
+RUN groupadd --system app && useradd --system --gid app --create-home --home-dir /home/app app && install -d -o app -g app -m 700 /var/lib/honeypot
 COPY service.py .
-RUN openssl req -x509 -newkey rsa:2048 -keyout /tmp/honeypot.key -out /tmp/honeypot.crt -days 365 -nodes -subj "/CN=localhost" && chown -R app:app /service /tmp/honeypot.key /tmp/honeypot.crt
+RUN chown -R app:app /service /var/lib/honeypot
 USER app
 
 EXPOSE 8080

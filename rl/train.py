@@ -31,3 +31,10 @@ def train_dqn(total_timesteps: int = 10_000, output: Path | None = None) -> DQN:
 
 def get_trained_dqn() -> DQN | None:
     return _trained_model
+
+
+def load_dqn(path: Path | str) -> DQN:
+    global _trained_model
+    model = DQN.load(path)
+    _trained_model = model
+    return model

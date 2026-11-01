@@ -26,6 +26,7 @@ backend/schemas/deception.py
 backend/schemas/evaluations.py
 backend/schemas/events.py
 backend/schemas/predictions.py
+backend/services/audit_trail.py
 backend/services/data_ingestion.py
 backend/services/deception.py
 backend/services/feature_engineering.py
@@ -46,6 +47,7 @@ cyber_deception_framework.egg-info/top_level.txt
 experiments/run_experiments.py
 federated/__init__.py
 federated/client.py
+federated/flower_client.py
 federated/server.py
 ml/__init__.py
 ml/train.py

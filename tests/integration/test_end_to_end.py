@@ -27,16 +27,25 @@ async def test_event_to_deception_pipeline(client: AsyncClient):
         "/api/v1/deception/decide",
         json={"evaluation_id": evaluation.json()["id"]},
     )
-    assert action.status_code == 201
-
-    interaction = await client.post(
-        "/api/v1/deception/interact",
-        json={
-            "action_id": action.json()["id"],
-            "session_id": "integration-test",
-            "service_type": "ssh",
-            "input_text": "CANARY whoami",
-        },
-    )
-    assert interaction.status_code == 200
-    assert interaction.json()["is_sandboxed"] is True
+    assert action.status_code in (200, 201)
+    strategy = action.json()["strategy_selected"]
+    mapping = {
+        "FAKE_SSH": "ssh",
+        "FAKE_WEB": "web",
+        "FAKE_DB": "db",
+        "FAKE_CREDENTIALS": "credentials",
+        "DIGITAL_TWIN": "digital_twin",
+    }
+    service_type = mapping.get(strategy)
+    if service_type is not None:
+        interaction = await client.post(
+            "/api/v1/deception/interact",
+            json={
+                "action_id": action.json()["id"],
+                "session_id": "integration-test",
+                "service_type": service_type,
+                "input_text": "CANARY whoami",
+            },
+        )
+        assert interaction.status_code == 200
+        assert interaction.json()["is_sandboxed"] is True

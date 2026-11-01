@@ -28,20 +28,20 @@ class FeatureEngineeringPipeline:
         """
         Extract derived and base numeric features from a single event dictionary.
         """
-        dest_port = int(event_dict.get("dest_port", 80))
+        dest_port = self._safe_int(event_dict.get("dest_port", 80), 80)
         protocol_str = str(event_dict.get("protocol", "TCP")).upper()
         protocol_num = self.PROTOCOL_MAP.get(protocol_str, 6)
         
-        packet_count = float(event_dict.get("packet_count", 1))
-        bytes_sent = float(event_dict.get("bytes_sent", 0))
-        bytes_received = float(event_dict.get("bytes_received", 0))
-        connection_rate = float(event_dict.get("connection_rate", 1.0))
-        failed_login_count = float(event_dict.get("failed_login_count", 0))
-        session_duration = max(0.001, float(event_dict.get("session_duration", 0.1)))
+        packet_count = self._safe_float(event_dict.get("packet_count", 1), 1.0)
+        bytes_sent = self._safe_float(event_dict.get("bytes_sent", 0), 0.0)
+        bytes_received = self._safe_float(event_dict.get("bytes_received", 0), 0.0)
+        connection_rate = self._safe_float(event_dict.get("connection_rate", 1.0), 1.0)
+        failed_login_count = self._safe_float(event_dict.get("failed_login_count", 0), 0.0)
+        session_duration = max(0.001, self._safe_float(event_dict.get("session_duration", 0.1), 0.1))
 
         # Derived features
         bytes_ratio = bytes_sent / (bytes_received + 1.0)
-        port_diversity = float(event_dict.get("port_diversity", 1))
+        port_diversity = self._safe_float(event_dict.get("port_diversity", 1), 1.0)
         
         # Time of day (fraction 0.0 - 1.0)
         event_time = event_dict.get("event_time")
@@ -57,7 +57,7 @@ class FeatureEngineeringPipeline:
             time_of_day = 0.5
 
         is_privileged_port = 1.0 if dest_port < 1024 else 0.0
-        connection_frequency = float(event_dict.get("connection_frequency", connection_rate * 60.0))
+        connection_frequency = self._safe_float(event_dict.get("connection_frequency", connection_rate * 60.0), connection_rate * 60.0)
         packets_per_second = packet_count / session_duration
 
         features = {
@@ -78,12 +78,67 @@ class FeatureEngineeringPipeline:
         }
         return features
 
+    @staticmethod
+    def _safe_int(value, default: int = 0) -> int:
+        try:
+            if value is None:
+                return default
+            return int(value)
+        except (TypeError, ValueError):
+            try:
+                return int(float(value))
+            except (TypeError, ValueError):
+                return default
+
+    @staticmethod
+    def _safe_float(value, default: float = 0.0) -> float:
+        try:
+            if value is None:
+                return default
+            return float(value)
+        except (TypeError, ValueError):
+            return default
+
+    def merge_computed_features(self, event_dict: dict) -> dict:
+        merged = dict(event_dict or {})
+        candidates = []
+        raw = merged.get("raw_features")
+        if isinstance(raw, dict):
+            candidates.append(raw.get("computed_features"))
+        candidates.append(merged.get("computed_features"))
+        for computed in candidates:
+            if isinstance(computed, dict):
+                for key, value in computed.items():
+                    if key in self.feature_names:
+                        merged[key] = value
+        return merged
+
+    def extract_features_from_event(self, event) -> dict[str, float]:
+        event_dict = {
+            "source_ip": getattr(event, "source_ip", None),
+            "dest_ip": getattr(event, "dest_ip", None),
+            "source_port": getattr(event, "source_port", 0),
+            "dest_port": getattr(event, "dest_port", 80),
+            "protocol": getattr(event, "protocol", "TCP"),
+            "packet_count": getattr(event, "packet_count", 1),
+            "bytes_sent": getattr(event, "bytes_sent", 0),
+            "bytes_received": getattr(event, "bytes_received", 0),
+            "connection_rate": getattr(event, "connection_rate", 1.0),
+            "failed_login_count": getattr(event, "failed_login_count", 0),
+            "session_duration": getattr(event, "session_duration", 0.0),
+            "event_time": getattr(event, "event_time", None),
+            "raw_features": getattr(event, "raw_features", None) or {},
+        }
+        event_dict = self.merge_computed_features(event_dict)
+        return self.extract_features_from_dict(event_dict)
+
     def to_feature_vector(self, event_dict: dict) -> np.ndarray:
         """
         Convert a single event to a 1D numpy array aligned with self.feature_names.
         """
-        feat_dict = self.extract_features_from_dict(event_dict)
-        return np.array([feat_dict.get(col, 0.0) for col in self.feature_names], dtype=np.float32)
+        merged = self.merge_computed_features(event_dict)
+        feat_dict = self.extract_features_from_dict(merged)
+        return np.array([self._safe_float(feat_dict.get(col, 0.0), 0.0) for col in self.feature_names], dtype=np.float32)
 
     def transform_dataframe(self, df: pd.DataFrame) -> pd.DataFrame:
         """

@@ -25,9 +25,27 @@ class DeceptionEnv(gym.Env):
     def step(self, action: int):
         risk = float(np.mean(self.state[:3]))
         engagement = float(self.state[3])
+        device = float(self.state[4])
+        behaviour = float(self.state[1])
+        network = float(self.state[2])
+        composite = float(self.state[6])
         targeted = action < 5
-        reward = risk * 0.8 + (engagement * 0.4 if targeted else -0.2)
-        self.state[3] = np.clip(engagement + (0.1 if targeted else -0.05), 0.0, 1.0)
+        if action == 0:
+            alignment = device
+        elif action == 1:
+            alignment = 0.5
+        elif action == 2:
+            alignment = float(self.state[5])
+        elif action == 3:
+            alignment = behaviour
+        elif action == 4:
+            alignment = network
+        else:
+            alignment = 1.0 - composite
+        reward = risk * 0.5 + alignment * 0.35 + (engagement * 0.2 if targeted else -0.15)
+        if action == 5 and composite >= 0.6:
+            reward -= 0.25
+        self.state[3] = np.clip(engagement + (0.12 if targeted else -0.05), 0.0, 1.0)
         self.state[4] = float(targeted)
         self.steps += 1
         terminated = self.steps >= self.max_steps
