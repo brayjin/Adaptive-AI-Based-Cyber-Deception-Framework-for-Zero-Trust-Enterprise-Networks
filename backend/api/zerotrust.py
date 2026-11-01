@@ -157,18 +157,21 @@ async def get_policy():
     summary="Update Zero Trust policy weights and decision thresholds at runtime",
 )
 async def update_policy(config: ZeroTrustPolicyConfig):
-    new_policy = ZeroTrustPolicy(
-        weight_identity=config.weight_identity,
-        weight_device=config.weight_device,
-        weight_behaviour=config.weight_behaviour,
-        weight_context=config.weight_context,
-        weight_network=config.weight_network,
-        threshold_allow=config.threshold_allow,
-        threshold_verify=config.threshold_verify,
-        threshold_restrict=config.threshold_restrict,
-        threshold_deceive=config.threshold_deceive,
-    )
-    updated = zero_trust_engine.update_policy(new_policy)
+    try:
+        new_policy = ZeroTrustPolicy(
+            weight_identity=config.weight_identity,
+            weight_device=config.weight_device,
+            weight_behaviour=config.weight_behaviour,
+            weight_context=config.weight_context,
+            weight_network=config.weight_network,
+            threshold_allow=config.threshold_allow,
+            threshold_verify=config.threshold_verify,
+            threshold_restrict=config.threshold_restrict,
+            threshold_deceive=config.threshold_deceive,
+        )
+        updated = zero_trust_engine.update_policy(new_policy)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return ZeroTrustPolicyConfig(
         weight_identity=updated.weight_identity,
         weight_device=updated.weight_device,

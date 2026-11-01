@@ -1,5 +1,5 @@
 import math
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict, field_validator, model_validator
 from backend.config import settings
 from backend.models.events import NetworkEvent
 from backend.models.predictions import ThreatPrediction
@@ -36,6 +36,61 @@ class ZeroTrustPolicy(BaseModel):
             self.weight_behaviour /= total
             self.weight_context /= total
             self.weight_network /= total
+
+
+    model_config = ConfigDict(validate_assignment=False)
+
+    @field_validator(
+        "weight_identity",
+        "weight_device",
+        "weight_behaviour",
+        "weight_context",
+        "weight_network",
+        "threshold_allow",
+        "threshold_verify",
+        "threshold_restrict",
+        "threshold_deceive",
+        mode="before",
+    )
+    @classmethod
+    def _validate_number(cls, value):
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            raise ValueError("Policy values must be numeric")
+        number = float(value)
+        if not math.isfinite(number):
+            raise ValueError("Policy values must be finite")
+        return number
+
+    @model_validator(mode="after")
+    def _validate_policy(self):
+        weights = [
+            self.weight_identity,
+            self.weight_device,
+            self.weight_behaviour,
+            self.weight_context,
+            self.weight_network,
+        ]
+        if any(weight < 0 for weight in weights):
+            raise ValueError("Weights cannot be negative")
+        if sum(weights) <= 0:
+            raise ValueError("Weight sum must be greater than zero")
+        thresholds = [
+            self.threshold_allow,
+            self.threshold_verify,
+            self.threshold_restrict,
+            self.threshold_deceive,
+        ]
+        if any(threshold < 0 or threshold > 1 for threshold in thresholds):
+            raise ValueError("Thresholds must be within [0, 1]")
+        if not (
+            self.threshold_allow
+            < self.threshold_verify
+            < self.threshold_restrict
+            < self.threshold_deceive
+        ):
+            raise ValueError("Thresholds must be strictly increasing")
+        self.normalize_weights()
+        return self
 
 
 class RiskScorer:
@@ -183,6 +238,16 @@ class RiskScorer:
         s_ctx = self.calculate_context_score(event_data)
         s_net = self.calculate_network_score(event_data)
 
+        for name, value in (
+            ("identity", s_id),
+            ("device", s_dev),
+            ("behaviour", s_beh),
+            ("context", s_ctx),
+            ("network", s_net),
+        ):
+            if not math.isfinite(value) or value < 0 or value > 1:
+                raise ValueError(f"Invalid {name} risk score")
+
         composite = (
             policy.weight_identity * s_id
             + policy.weight_device * s_dev
@@ -191,6 +256,8 @@ class RiskScorer:
             + policy.weight_network * s_net
         )
         composite = min(1.0, max(0.0, composite))
+        if not math.isfinite(composite):
+            raise ValueError("Composite risk score is not finite")
 
         # Map to decision
         if composite < policy.threshold_allow:
