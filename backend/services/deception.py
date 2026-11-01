@@ -63,6 +63,14 @@ class DeceptionService:
                 np.asarray(state, dtype=np.float32), deterministic=True
             )
             action_index = int(action)
+            if DECEPTION_ACTIONS[action_index] == "NORMAL_RESPONSE":
+                if evaluation.device_score >= 0.70:
+                    return "FAKE_SSH", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
+                if evaluation.network_score >= 0.70:
+                    return "DIGITAL_TWIN", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
+                if evaluation.behaviour_score >= 0.70:
+                    return "FAKE_CREDENTIALS", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
+                return "FAKE_WEB", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
             reward = compute_reward(state, action_index)
             return (
                 DECEPTION_ACTIONS[action_index],
@@ -90,6 +98,14 @@ class DeceptionService:
             selected_index = adaptive_policy.select_action(
                 np.asarray(state, dtype=np.float32)
             )
+            if DECEPTION_ACTIONS[selected_index] == "NORMAL_RESPONSE":
+                if evaluation.device_score >= 0.70:
+                    return "FAKE_SSH", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
+                if evaluation.network_score >= 0.70:
+                    return "DIGITAL_TWIN", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
+                if evaluation.behaviour_score >= 0.70:
+                    return "FAKE_CREDENTIALS", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
+                return "FAKE_WEB", "Rule-based fallback after RL NORMAL_RESPONSE", [], "", 0.0
             reward = compute_reward(state, selected_index)
             return (
                 DECEPTION_ACTIONS[selected_index],
@@ -128,11 +144,24 @@ class DeceptionService:
             requested = strategy.upper()
             if requested not in STRATEGIES:
                 raise ValueError(f"Unsupported deception strategy: {strategy}")
-            if requested != "NORMAL_RESPONSE" and evaluation.trust_decision not in {"DECEIVE", "BLOCK"}:
-                raise ValueError(
-                    "Deception strategy override not permitted for "
-                    f"{evaluation.trust_decision} risk decision"
-                )
+            if evaluation.trust_decision in {"DECEIVE", "BLOCK"}:
+                if requested == "NORMAL_RESPONSE" or requested not in {
+                    "FAKE_SSH",
+                    "FAKE_WEB",
+                    "FAKE_DB",
+                    "FAKE_CREDENTIALS",
+                    "DIGITAL_TWIN",
+                }:
+                    raise ValueError(
+                        "Deception override must be one of the five decoy strategies for "
+                        f"{evaluation.trust_decision} risk decision"
+                    )
+            else:
+                if requested != "NORMAL_RESPONSE":
+                    raise ValueError(
+                        "Deception strategy override not permitted for "
+                        f"{evaluation.trust_decision} risk decision"
+                    )
             selected = requested
             reason = "Strategy selected by caller"
             # Caller override means no RL policy action was used.

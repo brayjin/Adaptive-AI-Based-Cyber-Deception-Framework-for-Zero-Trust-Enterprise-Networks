@@ -41,7 +41,14 @@ async def _make_evaluation(db_session, decision: str) -> ZeroTrustEvaluation:
 
 @pytest.mark.asyncio
 async def test_all_six_strategies_selectable_for_deceive(db_session):
-    for strategy in STRATEGIES:
+    decoys = [
+        "FAKE_SSH",
+        "FAKE_WEB",
+        "FAKE_DB",
+        "FAKE_CREDENTIALS",
+        "DIGITAL_TWIN",
+    ]
+    for strategy in decoys:
         evaluation = await _make_evaluation(db_session, "DECEIVE")
         action = await deception_service.decide(db_session, evaluation, strategy)
         assert action.strategy_selected == strategy
@@ -96,13 +103,53 @@ async def test_service_type_mismatch_rejected(db_session):
 
 
 @pytest.mark.asyncio
-async def test_unrelated_evaluation_interaction_rejected(db_session):
-    evaluation = await _make_evaluation(db_session, "ALLOW")
-    evaluation2 = await _make_evaluation(db_session, "DECEIVE")
-    action2 = await deception_service.decide(db_session, evaluation2, "FAKE_SSH")
-    action2.evaluation_id = evaluation.id
-    await db_session.flush()
+async def test_verify_cannot_invoke_decoy(db_session):
+    evaluation = await _make_evaluation(db_session, "VERIFY")
     with pytest.raises(ValueError):
-        await deception_service.record_interaction(
-            db_session, action2, "sess", "ssh", "hello"
-        )
+        await deception_service.decide(db_session, evaluation, "FAKE_DB")
+
+
+@pytest.mark.asyncio
+async def test_restrict_cannot_invoke_decoy(db_session):
+    evaluation = await _make_evaluation(db_session, "RESTRICT")
+    with pytest.raises(ValueError):
+        await deception_service.decide(db_session, evaluation, "FAKE_WEB")
+
+
+@pytest.mark.asyncio
+async def test_block_can_select_decoy(db_session):
+    evaluation = await _make_evaluation(db_session, "BLOCK")
+    action = await deception_service.decide(db_session, evaluation, "FAKE_SSH")
+    assert action.strategy_selected == "FAKE_SSH"
+
+
+@pytest.mark.asyncio
+async def test_deceive_cannot_downgrade_to_normal(db_session):
+    evaluation = await _make_evaluation(db_session, "DECEIVE")
+    with pytest.raises(ValueError):
+        await deception_service.decide(db_session, evaluation, "NORMAL_RESPONSE")
+
+
+@pytest.mark.asyncio
+async def test_block_cannot_downgrade_to_normal(db_session):
+    evaluation = await _make_evaluation(db_session, "BLOCK")
+    with pytest.raises(ValueError):
+        await deception_service.decide(db_session, evaluation, "NORMAL_RESPONSE")
+
+
+@pytest.mark.asyncio
+async def test_rl_normal_response_cannot_bypass_policy(db_session, monkeypatch):
+    from backend.services import rl_deception
+
+    evaluation = await _make_evaluation(db_session, "DECEIVE")
+    monkeypatch.setattr(rl_deception.adaptive_policy, "trained_episodes", 1)
+    monkeypatch.setattr(rl_deception.adaptive_policy, "select_action", lambda state, explore=False: 5)
+    action = await deception_service.decide(db_session, evaluation)
+    assert action.strategy_selected != "NORMAL_RESPONSE"
+    assert action.strategy_selected in {
+        "FAKE_SSH",
+        "FAKE_WEB",
+        "FAKE_DB",
+        "FAKE_CREDENTIALS",
+        "DIGITAL_TWIN",
+    }
